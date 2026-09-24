@@ -13,7 +13,7 @@
   color-scheme:dark;
 }
 *,*::before,*::after{box-sizing:border-box}
-html{height:100%;background:var(--felt-lo)}
+html{height:100%;background:var(--felt-lo);touch-action:manipulation;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{height:100%;margin:0;overflow:hidden;color:var(--ink);font:14px/1.45 "Noto Sans TC",system-ui,-apple-system,sans-serif;
   background:radial-gradient(130% 80% at 50% 10%,var(--felt-hi) 0%,var(--felt) 45%,var(--felt-lo) 100%);
   -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;touch-action:manipulation}

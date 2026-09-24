@@ -621,6 +621,10 @@ function renderSound() {
 $('#bSound').onclick = () => { sfx.toggle(); renderSound(); };
 $('#bSoundHome').onclick = () => { sfx.toggle(); renderSound(); };
 document.addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
+// No zooming: iOS Safari ignores user-scalable=no, so block pinch gestures directly.
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
 renderSound();
 let rz;
 addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (screen === 'game') renderGame(); }, 120); });
