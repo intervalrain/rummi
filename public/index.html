@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12292F">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Rummi 數字牌</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ================= home ================= -->
+  <section id="home" class="screen scroll">
+    <div class="wrap">
+      <div class="hero">
+        <div class="mark" id="markHome"></div>
+        <p class="tag">線上數字牌 · 2–4 人即時對戰</p>
+        <div class="pills"><span class="pill" id="onlinePill"><i class="dot"></i><span id="onlineTxt">連線中…</span></span><button class="pill" id="bSoundHome" type="button"><span id="soundTxt">音效開</span></button></div>
+      </div>
+
+      <div class="card">
+        <label class="lbl" for="nameIn">你的暱稱</label>
+        <input id="nameIn" class="field" maxlength="12" autocomplete="nickname" placeholder="取個名字">
+      </div>
+
+      <div class="card play">
+        <button class="bigbtn primary" id="bQuick" type="button"><b>快速配對</b><small>自動找 2–4 位真人玩家</small></button>
+        <div class="split">
+          <button class="bigbtn" id="bCreate" type="button"><b>建立房間</b><small>邀請朋友一起玩</small></button>
+          <form class="joinform" id="joinForm">
+            <input id="codeIn" class="field code" maxlength="4" autocomplete="off" autocapitalize="characters" placeholder="房號" aria-label="房號">
+            <button class="btn" type="submit">加入</button>
+          </form>
+        </div>
+        <div class="solo">
+          <div class="sololbl">和電腦玩</div>
+          <div class="seg" id="soloBots" role="group" aria-label="電腦人數">
+            <button type="button" data-v="1">1 位</button><button type="button" data-v="2">2 位</button><button type="button" data-v="3" aria-pressed="true">3 位</button>
+          </div>
+          <div class="seg" id="soloDiff" role="group" aria-label="電腦強度">
+            <button type="button" data-v="easy">一般</button><button type="button" data-v="hard" aria-pressed="true">高手</button>
+          </div>
+          <button class="btn go" id="bSolo" type="button">開始</button>
+        </div>
+      </div>
+
+      <div class="card chatcard">
+        <div class="cardhead"><h2>大廳聊天</h2><span class="muted" id="lobbyCount"></span></div>
+        <div class="chatbox" data-ch="lobby"></div>
+      </div>
+
+      <details class="card rulescard">
+        <summary>規則與操作</summary>
+        <div id="rulesHome"></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ================= queue ================= -->
+  <section id="queue" class="screen center" hidden>
+    <div class="shuffle" aria-hidden="true"><span class="c1">7</span><span class="c2">8</span><span class="c3">9</span><span class="c0">10</span></div>
+    <h1>正在尋找對手…</h1>
+    <p class="muted" id="queueTxt"></p>
+    <p class="note">湊滿 4 人立刻開始；有 2 人以上時，最多等 12 秒就開局。</p>
+    <div class="row2">
+      <button class="btn" id="bUnqueue" type="button">取消</button>
+      <button class="btn go" id="bQueueSolo" type="button">不等了，和電腦玩</button>
+    </div>
+  </section>
+
+  <!-- ================= room ================= -->
+  <section id="room" class="screen scroll" hidden>
+    <div class="wrap">
+      <div class="roomhead">
+        <div><span class="eyebrow">房號</span><div class="roomcode" id="roomCode">----</div></div>
+        <button class="btn" id="bInvite" type="button">邀請朋友</button>
+      </div>
+      <div class="card"><div class="seats" id="seats"></div><div id="roomCtl"></div></div>
+      <div class="card chatcard">
+        <div class="cardhead"><h2>牌桌聊天</h2></div>
+        <div class="chatbox" data-ch="table"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= game ================= -->
+  <section id="game" class="screen" hidden>
+    <header id="top">
+      <div id="players"></div>
+      <button class="iconbtn" id="bSound" type="button" aria-label="音效"></button>
+      <button class="iconbtn" id="bChat" type="button" aria-label="聊天"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 4.5h14v9H8.5L5 16.5v-3H3z"/></svg><i id="chatBadge" hidden></i></button>
+      <button class="iconbtn" id="bMenu" type="button" aria-label="選單"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5h14M3 10h14M3 15h14"/></svg></button>
+    </header>
+    <div id="boardWrap">
+      <main id="board" data-drop="new"><div id="sets"></div></main>
+    </div>
+    <section id="rack">
+      <div id="status"></div>
+      <div id="hand" data-drop="hand"></div>
+      <div id="actions">
+        <button class="btn" id="bSort" type="button">排序<small id="sortLbl">智慧</small></button>
+        <button class="btn hint" id="bHint" type="button">智慧出牌<small>自動配對</small></button>
+        <button class="btn" id="bUndo" type="button">復原<small>上一步</small></button>
+        <button class="btn" id="bReset" type="button">重置<small>本回合</small></button>
+        <button class="btn primary" id="bMain" type="button">抽牌</button>
+      </div>
+    </section>
+  </section>
+</div>
+
+<div id="chatSheet" class="modal" hidden>
+  <div class="sheet chatsheet" role="dialog" aria-modal="true" aria-label="牌桌聊天">
+    <div class="cardhead"><h2>牌桌聊天</h2><button class="iconbtn" id="bChatClose" type="button" aria-label="關閉">✕</button></div>
+    <div class="chatbox" data-ch="table"></div>
+  </div>
+</div>
+<div id="modal" class="modal" hidden><div class="sheet" role="dialog" aria-modal="true" id="sheet"></div></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="conn" hidden>連線中斷，重新連線中…</div>
+</body>
+</html>
