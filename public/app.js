@@ -358,7 +358,7 @@ function renderGame() {
   if (!V || V.status === 'waiting') return;
   const prev = new Map();
   if (!REDUCE) $$('#game .tile[data-id]').forEach(el => prev.set(el.dataset.id, el.getBoundingClientRect()));
-  renderTop(); renderBoard(); renderHand(); renderRack();
+  renderTop(); renderHand(); renderRack(); renderBoard();  // board last: its space depends on the rack height
   if (!REDUCE) flip(prev);
 }
 function flip(prev) {
@@ -400,8 +400,34 @@ function renderBoard() {
   }).join('');
   const watching = !mt && PV && V.status === 'playing' ? `<div class="watching">${esc(pname(V.turn))} 正在排牌…</div>` : '';
   const empty = board.length ? '' : `<div class="empty"><b>桌面還是空的</b>用手牌湊出 30 分以上的牌組來破冰</div>`;
+  fitBoard(board.map(s => s.tiles.length), mt, !!watching);
   $('#sets').innerHTML = watching + empty + html + (mt ? '<div class="newset" data-drop="new">＋ 新牌組</div>' : '');
   $('#board').classList.toggle('selecting', sel.size > 0);
+}
+/* Picks the largest table-tile size at which every set fits on screen without
+   scrolling, by simulating the flex-wrap layout. Below the minimum the table scrolls. */
+const BOARD_MAX = 34, BOARD_MIN = 17;
+function fitBoard(lens, withNewSet, withWatching) {
+  const el = $('#board'), cs = getComputedStyle(el);
+  const W = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+  const H = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - (withWatching ? 22 : 0);
+  const items = withNewSet ? lens.concat(-1) : lens;
+  const max = Math.min(BOARD_MAX, Math.max(24, innerWidth * 0.073));
+  const layout = bw => {
+    const gx = Math.max(4, bw * 0.24), gy = Math.max(6, bw * 0.3), rowH = bw * 1.36 + 12;
+    let x = 0, rows = 1;
+    for (const n of items) {
+      const w = n < 0 ? Math.max(bw * 3 + 14, 78) : n * bw + (n - 1) * 2 + 10;
+      if (x > 0 && x + gx + w > W) { rows++; x = w; } else x += (x ? gx : 0) + w;
+    }
+    return { fits: rows * rowH + (rows - 1) * gy <= H, gx, gy };
+  };
+  let bw = max, r = layout(bw);
+  while (!r.fits && bw > BOARD_MIN) { bw = Math.max(BOARD_MIN, bw - 0.5); r = layout(bw); }
+  el.style.setProperty('--bw', bw + 'px');
+  el.style.setProperty('--bh', bw * 1.36 + 'px');
+  el.style.setProperty('--gx', r.gx + 'px');
+  el.style.setProperty('--gy', r.gy + 'px');
 }
 let smartCache = { key: '', groups: null };
 function handGroups() {
@@ -426,12 +452,13 @@ function renderHand() {
   const groups = handGroups(), n = L.hand.length;
   const W = hand.clientWidth - 16, gapCount = groups.length - 1;
   let tw = 48;
+  // two rows while tiles stay comfortably large, then three rows with smaller tiles
   for (const rows of [2, 3, 4]) {
     const per = Math.ceil(n / rows) || 1;
     tw = (W - (per - 1) * 4 - (gapCount * 10) / rows) / per;
-    if (tw >= 36 || rows === 4) break;
+    if (tw >= (rows === 2 ? 36 : 22) || rows === 4) break;
   }
-  tw = Math.max(26, Math.min(48, Math.floor(tw)));
+  tw = Math.max(22, Math.min(48, Math.floor(tw)));
   document.documentElement.style.setProperty('--hw', tw + 'px');
   hand.innerHTML = groups.map(g => g.tiles.map((id, i) => tileHTML(id, (i === 0 ? ' gs' : '') + (g.meld ? ' mg' : '') + (lastDrawn === id ? ' drawn' : ''))).join('')).join('');
 }
@@ -485,9 +512,11 @@ function closeModal() { modal.hidden = true; }
 function showMenu() {
   sheet.innerHTML = `<div class="mark">${markHTML()}</div>
     <p class="sub">房號 ${esc(V.code)}${V.priv ? '' : '（配對桌）'}</p>
+    <div class="seg"><button type="button" id="mSound"></button></div>
     <h2 class="sec">規則與操作</h2>${rulesHTML()}
     <div class="row2"><button class="btn danger" id="mLeave" type="button">離開牌局</button><button class="btn primary" id="mClose" type="button">回到牌桌</button></div>`;
   modal.hidden = false;
+  renderSound();
 }
 function showResult() {
   if (!V?.over) return;
@@ -505,6 +534,7 @@ modal.addEventListener('click', e => {
   if (e.target === modal) return closeModal();
   const b = e.target.closest('button'); if (!b) return;
   if (b.id === 'mClose') closeModal();
+  if (b.id === 'mSound') { sfx.toggle(); renderSound(); }
   if (b.id === 'mLeave') {
     if (!b.dataset.sure) { b.dataset.sure = 1; b.textContent = '確定離開？電腦會代打'; return; }
     send({ t: 'leave' }); closeModal();
@@ -612,13 +642,10 @@ $('#bMain').onclick = commit;
 $('#bMenu').onclick = showMenu;
 function renderSound() {
   const on = sfx.enabled;
-  $('#bSound').innerHTML = on
-    ? '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 8h3l4-3.5v11L6 12H3z"/><path d="M13.5 7.2a4 4 0 0 1 0 5.6M15.8 5a7 7 0 0 1 0 10"/></svg>'
-    : '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M3 8h3l4-3.5v11L6 12H3z"/><path d="M13.5 8l4 4M17.5 8l-4 4"/></svg>';
-  $('#bSound').setAttribute('aria-label', on ? '關閉音效' : '開啟音效');
   $('#soundTxt').textContent = on ? '音效開' : '音效關';
+  const m = $('#mSound');
+  if (m) m.textContent = on ? '音效：開' : '音效：關';
 }
-$('#bSound').onclick = () => { sfx.toggle(); renderSound(); };
 $('#bSoundHome').onclick = () => { sfx.toggle(); renderSound(); };
 document.addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
 // No zooming: iOS Safari ignores user-scalable=no, so block pinch gestures directly.
