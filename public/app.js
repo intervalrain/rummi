@@ -648,10 +648,21 @@ function renderSound() {
 }
 $('#bSoundHome').onclick = () => { sfx.toggle(); renderSound(); };
 document.addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
-// No zooming: iOS Safari ignores user-scalable=no, so block pinch gestures directly.
-for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
-document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
-document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+// No zooming, on any device.
+// - CSS touch-action: pan-x pan-y (no pinch-zoom / double-tap-zoom) plus the viewport meta.
+// - iOS Safari ignores user-scalable=no: block its gesture events and multi-touch.
+// - Desktop: trackpad pinch and Ctrl/⌘+wheel arrive as wheel events with ctrlKey; Ctrl/⌘ +/−/0 as keys.
+const block = e => { if (e.cancelable) e.preventDefault(); };
+for (const ev of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(ev, block, { passive: false });
+for (const ev of ['touchstart', 'touchmove']) document.addEventListener(ev, e => { if (e.touches.length > 1) block(e); }, { passive: false });
+document.addEventListener('dblclick', block, { passive: false });
+addEventListener('wheel', e => { if (e.ctrlKey || e.metaKey) block(e); }, { passive: false });
+addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && ['+', '=', '-', '_', '0'].includes(e.key)) block(e); });
+// If a browser zooms anyway (e.g. an accessibility override), snap back by re-applying the viewport.
+const vpMeta = document.querySelector('meta[name=viewport]');
+window.visualViewport?.addEventListener('resize', () => {
+  if (visualViewport.scale > 1.01) { const c = vpMeta.content; vpMeta.content = c + ', width=device-width'; requestAnimationFrame(() => { vpMeta.content = c; }); }
+});
 renderSound();
 let rz;
 addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (screen === 'game') renderGame(); }, 120); });
