@@ -9,6 +9,10 @@ const REDUCE = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const JOKER = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.6" fill="none" stroke="currentColor" stroke-width="2.3"/><circle cx="8.7" cy="10" r="1.6" fill="currentColor"/><circle cx="15.3" cy="10" r="1.6" fill="currentColor"/><path d="M7.4 14.1q4.6 4.8 9.2 0" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/></svg>';
 const COLOR_NAMES = ['黑', '紅', '藍', '橙'];
 const QUICK_PHRASES = ['安安', '好牌！', '等我一下', '哈哈哈', '手氣不錯', '再一局？', 'GG'];
+// Table-side quick chat: meant to needle whoever is taking their time.
+const EMOJIS = ['😏', '🥱', '🐢', '🤡', '😱', '🔥', '👏', '💩', '🙏', '😭'];
+const TAUNTS = ['快點啦～', '你是在孵蛋嗎？', '想好了沒', '就這？', '謝謝你的牌', '要破冰囉，怕了嗎', '穩了穩了', '手牌好多喔', '別再抽了啦', '運氣不錯嘛', '這把我的', 'GG'];
+const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200d|\ufe0f){1,12}$/u;
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode */ } },
@@ -73,7 +77,7 @@ function markHTML(word = 'RUMMI') {
 function rulesHTML() {
   return `<ul class="rules">
     <li><b>牌組</b>：同色連號 3 張以上（順子），或同數字不同色 3–4 張（群組）。鬼牌可代替任何牌。</li>
-    <li><b>破冰</b>：第一次出牌只能用手牌，總點數至少 30。</li>
+    <li><b>破冰</b>：第一次出牌只能用手牌，總點數至少 30。還沒破冰的玩家頭像旁會有「冰」字。</li>
     <li><b>重組</b>：破冰後可以拆解、重組桌上的牌，回合結束時每一組都成立即可。</li>
     <li>出不了牌就抽一張，先出完手牌的人獲勝。每回合限時 90 秒。</li>
     <li>點牌選取，再點目標牌組裡的任一張加入，或點「＋ 新牌組」。也可以直接拖曳。</li>
@@ -159,8 +163,9 @@ $('#bInvite').onclick = async () => {
 
 /* ================= chat ================= */
 function chatBoxInit(box) {
+  const quick = box.dataset.ch === 'table' ? EMOJIS.slice(0, 5).concat(TAUNTS) : QUICK_PHRASES;
   box.innerHTML = `<div class="msgs"></div>
-    <div class="quick">${QUICK_PHRASES.map(p => `<button type="button">${esc(p)}</button>`).join('')}</div>
+    <div class="quick">${quick.map(p => `<button type="button">${esc(p)}</button>`).join('')}</div>
     <form class="chatform"><input class="field" maxlength="200" placeholder="說點什麼…" enterkeyhint="send" aria-label="訊息"><button class="btn" type="submit">送出</button></form>`;
   const ch = box.dataset.ch;
   box.querySelector('.quick').addEventListener('click', e => { const b = e.target.closest('button'); if (b) send({ t: 'chat', ch, text: b.textContent }); });
@@ -191,11 +196,47 @@ function onChat(ch, msg) {
   if (chats[ch].length > 80) chats[ch].shift();
   renderChats();
   if (!msg.sys && msg.from !== me.id && (ch === 'table' || screen === 'home')) sfx.pop();
-  if (ch === 'table' && screen === 'game' && $('#chatSheet').hidden && !msg.sys && msg.from !== me.id) {
-    unread++; updateBadge();
-    toast(`${msg.name}：${msg.text}`, 'chat');
-  }
+  if (ch !== 'table' || screen !== 'game' || msg.sys) return;
+  // said at the table: pop it on the speaker's pill instead of a toast over the board
+  if (msg.seat >= 0) bubble(msg.seat, msg.text);
+  if ($('#chatSheet').hidden && msg.from !== me.id) { unread++; updateBadge(); }
 }
+const bubbles = [];
+function bubble(seat, text) {
+  const pill = $$('#players .pl')[seat];
+  if (!pill) return;
+  const top = $('#top'), tr = top.getBoundingClientRect();
+  const emo = EMOJI_ONLY.test(text);
+  bubbles[seat]?.remove();
+  const b = document.createElement('div');
+  b.className = emo ? 'emo' : 'bubble';
+  b.innerHTML = emo ? esc(text) : `<span>${esc(text)}</span>`;
+  b.setAttribute('aria-hidden', 'true');
+  top.appendChild(b);
+  if (emo) {
+    const a = pill.querySelector('.av').getBoundingClientRect();
+    b.style.left = `${a.left - tr.left + a.width / 2}px`;
+    b.style.top = `${a.top - tr.top + a.height / 2}px`;
+  } else {
+    const p = pill.getBoundingClientRect(), cx = p.left - tr.left + p.width / 2;
+    const x = Math.min(Math.max(cx - b.offsetWidth / 2, 6), tr.width - b.offsetWidth - 6);
+    b.style.left = `${x}px`;
+    b.style.top = `${p.bottom - tr.top + 7}px`;
+    b.style.setProperty('--ax', `${cx - x}px`);
+  }
+  bubbles[seat] = b;
+  setTimeout(() => { b.remove(); if (bubbles[seat] === b) bubbles[seat] = null; }, emo ? 2200 : 3400);
+}
+let lastTaunt = 0;
+function taunt(text) {
+  const now = Date.now();
+  if (now - lastTaunt < 1100) return;  // the server allows 5 per 5 s; stay under it
+  lastTaunt = now;
+  send({ t: 'chat', ch: 'table', text });
+}
+$('#taunts').innerHTML = EMOJIS.map(e => `<button type="button" class="emob">${e}</button>`).join('')
+  + TAUNTS.map(p => `<button type="button">${esc(p)}</button>`).join('');
+$('#taunts').addEventListener('click', e => { const b = e.target.closest('button'); if (b) taunt(b.textContent); });
 function updateBadge() { const b = $('#chatBadge'); b.hidden = !unread; b.textContent = unread > 9 ? '9+' : unread; }
 function openChat() { $('#chatSheet').hidden = false; unread = 0; updateBadge(); renderChats(); }
 function closeChat() { $('#chatSheet').hidden = true; }
@@ -206,7 +247,7 @@ $('#chatSheet').addEventListener('click', e => { if (e.target.id === 'chatSheet'
 /* ================= game state ================= */
 // L = the local, tentative table and hand for this turn. TS = the same at turn start.
 let L = { board: [], hand: [] }, TS = { board: [], hand: [] }, undoStack = [], PV = null;
-let sid = 1, lastMsgN = 0, resultSeq = -1, lastDrawn = null, busy = false;
+let sid = 1, turnShownAt = 0, lastMsgN = 0, resultSeq = -1, lastDrawn = null, busy = false;
 let sortMode = store.get('rummi.sort') || 'smart';
 const sel = new Set(), recent = new Set();
 const cloneBoard = b => b.map(s => ({ id: s.id, tiles: s.tiles.slice() }));
@@ -324,6 +365,7 @@ const iceValue = () => L.board.filter(s => s.tiles.every(id => TS.hand.includes(
 
 function commit() {
   if (!myTurn() || busy) return;
+  if (Date.now() - turnShownAt < 700) return;  // the taunt bar just turned into this button
   const played = playedNow();
   if (!played.length) { busy = true; send({ t: 'draw', seq: V.seq }); renderRack(); return; }
   const r = E.validateTurn(TS.board.map(s => s.tiles), L.board.map(s => s.tiles), TS.hand, melded());
@@ -392,11 +434,13 @@ function turnLeft() { return V && V.turnLeft ? Math.max(0, V.turnLeft - (Date.no
 function renderTop() {
   $('#players').innerHTML = V.seats.map((p, i) => {
     const active = i === V.turn && V.status === 'playing';
-    const state = p.left ? '已離開' : `${p.count} 張${p.melded ? '' : ' · <i>未破冰</i>'}`;
-    return `<div class="pl ${active ? 'active' : ''} ${p.left ? 'gone' : ''}">
+    const ice = !p.left && !p.melded;
+    return `<div class="pl ${active ? 'active' : ''} ${p.left ? 'gone' : ''}" title="${esc(pname(i))}${ice ? '（未破冰）' : ''}">
       <div class="av ${p.bot ? 'bot' : 's' + i}">${esc(i === V.you ? '你' : [...p.name][0] || '?')}</div>
       ${!p.online && !p.left ? '<span class="off" title="離線"></span>' : ''}
-      <div class="pm"><b>${esc(pname(i))}</b><span>${state}${active && V.turnLeft ? ` <em data-timer></em>` : ''}</span></div></div>`;
+      ${ice ? '<span class="ice" aria-label="未破冰">冰</span>' : ''}
+      ${active && V.turnLeft ? '<em data-timer></em>' : ''}
+      <div class="pm"><b>${esc(pname(i))}</b><span>${p.left ? '已離開' : `${p.count}<small>張</small>`}</span></div></div>`;
   }).join('');
   tickTimers();
 }
@@ -493,6 +537,9 @@ function renderRack() {
   else if (mt && played.length) chips = `<span class="chip ok">本回合 +${played.length}</span>` + chips;
   if (mt && V.turnLeft) chips = `<span class="chip" data-timer></span>` + chips;
   $('#status').innerHTML = `<span class="who">${esc(who)}</span>${chips}`;
+  const waiting = V.status === 'playing' && !mt && V.you >= 0, rack = $('#rack');
+  if (!waiting && rack.classList.contains('waiting')) turnShownAt = Date.now();
+  rack.classList.toggle('waiting', waiting);
   $('#sortLbl').textContent = { smart: '智慧', color: '顏色', num: '數字' }[sortMode];
   $('#bHint').disabled = !mt;
   $('#bUndo').disabled = !mt || !undoStack.length;
@@ -524,11 +571,14 @@ setInterval(() => {
 let toastTimer = null;
 function toast(msg, kind = '') {
   const t = $('#toast');
+  // In a game, dock over the rack's status line so the table stays visible.
+  const dock = screen === 'game';
+  t.style.top = dock ? `${$('#status').getBoundingClientRect().top}px` : '';
   t.textContent = msg;
-  t.className = 'show ' + kind;
+  t.className = 'show ' + kind + (dock ? ' dock' : '');
   if (kind === 'bad') sfx.nope();
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { t.className = ''; }, kind === 'chat' ? 3200 : 2600);
+  toastTimer = setTimeout(() => { t.classList.remove('show'); }, 2600);
 }
 const modal = $('#modal'), sheet = $('#sheet');
 function closeModal() { modal.hidden = true; }

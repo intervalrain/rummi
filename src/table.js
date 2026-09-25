@@ -38,6 +38,10 @@ export class Table {
     return this.g.players.filter(p => !p.bot && !p.left).map(p => p.pid);
   }
   has(pid) { return this.members().includes(pid); }
+  seatOf(pid) {
+    const list = this.status === 'waiting' ? this.seats : this.g.players;
+    return list.findIndex(s => s && !s.bot && s.pid === pid);
+  }
   pname(p) { return p.bot ? p.name : this.hub.nameOf(p.pid); }
 
   addHuman(pid) {

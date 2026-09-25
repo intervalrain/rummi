@@ -103,6 +103,19 @@ test('table chat reaches only that table; lobby chat reaches everyone', () => {
   stopAll(lobby);
 });
 
+test('table chat carries the sender seat so clients can show it on their player pill', () => {
+  const { lobby, connect } = setup();
+  const a = connect('A'), b = connect('B');
+  lobby.handle(a.p, { t: 'create' });
+  lobby.handle(b.p, { t: 'join', code: a.last('table').view.code });
+  lobby.handle(b.p, { t: 'chat', ch: 'table', text: '😏' });
+  assert.equal(a.last('chat').msg.seat, 1);
+  lobby.handle(a.p, { t: 'start' });
+  lobby.handle(a.p, { t: 'chat', ch: 'table', text: '快點啦' });
+  assert.equal(b.last('chat').msg.seat, a.last('table').view.you);
+  stopAll(lobby);
+});
+
 test('chat is rate-limited', () => {
   const { lobby, connect } = setup();
   const a = connect('A');

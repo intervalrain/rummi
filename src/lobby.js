@@ -218,7 +218,7 @@ export class Lobby {
     const msg = { id: crypto.randomUUID(), from: p.id, name: p.name, text, ts: now };
     if (ch === 'table') {
       const t = p.table && this.tables.get(p.table);
-      if (t) t.addChat(msg);
+      if (t) t.addChat({ ...msg, seat: t.seatOf(p.id) });
       return;
     }
     this.chat.push(msg);

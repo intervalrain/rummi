@@ -132,7 +132,7 @@ button.pill{border:0}
 .av.bot{background:#6F8C92}
 
 /* ---------- game: players ---------- */
-#top{display:flex;gap:5px;align-items:center;padding:8px 12px 6px}
+#top{position:relative;z-index:3;display:flex;gap:5px;align-items:center;padding:12px 12px 6px}
 #players{flex:1;display:flex;gap:5px;min-width:0}
 .pl{position:relative;flex:1;min-width:0;display:flex;align-items:center;gap:6px;padding:4px 6px 4px 4px;border-radius:999px;background:rgba(0,0,0,.2);border:1px solid rgba(255,255,255,.06);transition:background .25s,border-color .25s}
 .pl.active{background:rgba(228,178,76,.14);border-color:rgba(228,178,76,.7)}
@@ -140,12 +140,16 @@ button.pill{border:0}
 .pl.active .av{animation:think 1.1s ease-in-out infinite}
 @keyframes think{50%{box-shadow:0 0 0 5px rgba(228,178,76,.25)}}
 .pl .off{position:absolute;left:22px;top:2px;width:8px;height:8px;border-radius:50%;background:#7A8B8E;border:1.5px solid var(--felt)}
-.pm{min-width:0;display:flex;flex-direction:column;line-height:1.15}
-.pm b{font-size:12px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pm span{font-size:11px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
-.pm span i{font-style:normal;color:var(--brass)}
-.pm em{font-style:normal;color:#F7DC9C}
-.pm em.low{color:#F4A29C}
+.pm{min-width:0;overflow:hidden;display:flex;flex-direction:column;line-height:1.15}
+.pm b,.pm span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pm b{font-size:12px;font-weight:700}
+.pm span{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+.pl .ice{position:absolute;left:22px;bottom:0;min-width:13px;height:13px;padding:0 2px;border-radius:7px;background:var(--brass);color:#2B1B06;border:1.5px solid var(--felt);font:700 8px/10px "Noto Sans TC",sans-serif;text-align:center}
+.pl em{position:absolute;top:-11px;right:-2px;padding:0 4px;border-radius:999px;background:#2B1B06;border:1px solid rgba(228,178,76,.7);font:700 9px/13px Rubik,sans-serif;font-style:normal;color:#F7DC9C;font-variant-numeric:tabular-nums}
+.pl em.low{color:#F4A29C;border-color:rgba(229,98,91,.7)}
+.pm span small{font-size:inherit}
+@media (max-width:420px){ .pl{gap:4px;padding:3px 5px 3px 3px} .pl .av{width:24px;height:24px;font-size:11px} .pl .ice{left:16px} .pl .off{left:19px} }
+@media (max-width:340px){ .pm b,.pm span small{display:none} .pm span{font:700 12px Rubik,sans-serif;color:var(--ink)} .pl .av{width:22px;height:22px} .pl .ice{left:14px} .pl .off{left:17px} }
 
 /* ---------- game: board ---------- */
 #boardWrap{flex:1;min-height:0;position:relative}
@@ -200,6 +204,27 @@ button.pill{border:0}
 .spectate{margin:auto;color:var(--muted);font-size:13px}
 #actions{display:grid;grid-template-columns:1fr 1.25fr 1fr 1fr 1.45fr;gap:6px;margin-top:9px}
 #actions .btn{padding:0 4px}
+#taunts{display:none}
+/* not your turn: the dead action buttons become emoji and taunts */
+#rack.waiting #actions{grid-template-columns:auto 1fr}
+#rack.waiting #actions>.btn:not(#bSort){display:none}
+#rack.waiting #taunts{display:flex;gap:6px;min-width:0;overflow-x:auto;overscroll-behavior:contain;scrollbar-width:none;touch-action:pan-x;
+  -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);mask-image:linear-gradient(90deg,#000 88%,transparent)}
+#taunts::-webkit-scrollbar{display:none}
+#taunts button{flex:none;height:46px;padding:0 12px;border-radius:12px;border:1px solid rgba(255,225,190,.14);background:rgba(0,0,0,.26);font-size:13px;white-space:nowrap;transition:transform .1s}
+#taunts button:active{transform:scale(.9)}
+#taunts .emob{width:44px;padding:0;font-size:22px}
+#taunts .emob+button:not(.emob){margin-left:6px}
+
+/* chat said at the table pops on the speaker's pill */
+.bubble,.emo{position:absolute;pointer-events:none;z-index:4}
+.bubble{max-width:min(180px,46vw);padding:5px 10px;border-radius:12px;background:var(--ivory);color:#2B1B06;font-size:12px;font-weight:500;line-height:1.3;
+  word-break:break-word;box-shadow:0 6px 16px rgba(0,0,0,.4);animation:bubble 3.4s ease both}
+.bubble span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.bubble::before{content:"";position:absolute;top:-5px;left:calc(var(--ax,50%) - 5px);width:10px;height:10px;background:inherit;transform:rotate(45deg);border-radius:2px}
+@keyframes bubble{0%{opacity:0;transform:translateY(-6px) scale(.85)}8%,85%{opacity:1;transform:none}100%{opacity:0}}
+.emo{font-size:34px;line-height:1;transform:translate(-50%,-50%);filter:drop-shadow(0 4px 6px rgba(0,0,0,.45));animation:emo 2.2s cubic-bezier(.2,.9,.3,1.2) both}
+@keyframes emo{0%{opacity:0;transform:translate(-50%,-50%) scale(.3)}14%{opacity:1;transform:translate(-50%,-50%) scale(1.25) rotate(-8deg)}24%{transform:translate(-50%,-50%) scale(1) rotate(6deg)}34%,80%{opacity:1;transform:translate(-50%,-50%) rotate(0)}100%{opacity:0;transform:translate(-50%,-90%) scale(.8)}}
 
 .ghost{position:fixed;left:0;top:0;z-index:50;pointer-events:none;display:flex;gap:3px;filter:drop-shadow(0 12px 14px rgba(0,0,0,.45));will-change:transform}
 .ghost .tile{transform:rotate(-3deg) scale(1.06)}
@@ -225,8 +250,10 @@ button.pill{border:0}
 #toast{position:fixed;left:50%;top:calc(var(--safe-t) + 58px);z-index:70;transform:translate(-50%,-8px);max-width:calc(100% - 32px);padding:9px 16px;border-radius:12px;background:rgba(10,24,28,.94);border:1px solid rgba(255,255,255,.1);font-size:13px;text-align:center;opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;box-shadow:0 8px 24px rgba(0,0,0,.35)}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 #toast.bad{border-color:rgba(229,98,91,.6)} #toast.good{border-color:rgba(92,196,140,.6)}
-#toast.chat{border-color:rgba(228,178,76,.5)}
+/* in a game the toast sits on the rack's status line, never over the table */
+#toast.dock{max-width:min(calc(100% - 24px),736px);padding:4px 14px;border-radius:999px;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:translate(-50%,6px)}
+#toast.dock.show{transform:translate(-50%,0)}
 #conn{position:fixed;left:50%;bottom:calc(var(--safe-b) + 14px);z-index:80;transform:translateX(-50%);padding:7px 14px;border-radius:999px;background:#5A2522;color:#FFD9D5;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.4)}
 
-@media (max-width:380px){ .pm span{font-size:10px} .btn{font-size:12px} .btn.primary{font-size:14px} .pl .av{width:24px;height:24px;font-size:11px} }
+@media (max-width:380px){ .pm span{font-size:10px} .btn{font-size:12px} .btn.primary{font-size:14px} }
 @media (prefers-reduced-motion:reduce){ *,*::before,*::after{animation:none!important;transition:none!important} }
