@@ -11,7 +11,7 @@ const COLOR_NAMES = ['黑', '紅', '藍', '橙'];
 const QUICK_PHRASES = ['安安', '好牌！', '等我一下', '哈哈哈', '手氣不錯', '再一局？', 'GG'];
 // Table-side quick chat: meant to needle whoever is taking their time.
 const EMOJIS = ['😏', '🥱', '🐢', '🤡', '😱', '🔥', '👏', '💩', '🙏', '😭'];
-const TAUNTS = ['快點啦～', '你是在孵蛋嗎？', '想好了沒', '就這？', '謝謝你的牌', '要破冰囉，怕了嗎', '穩了穩了', '手牌好多喔', '別再抽了啦', '運氣不錯嘛', '這把我的', 'GG'];
+const TAUNTS = ['疼嗎？', '你是在孵蛋嗎？', '想好了沒', '他很壞', '嘟嘟嘟', '差不多了喔~', '在大便喔？', '睡著了喔？'];
 const EMOJI_ONLY = /^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200d|\ufe0f){1,12}$/u;
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
