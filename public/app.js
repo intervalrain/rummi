@@ -745,8 +745,19 @@ window.visualViewport?.addEventListener('resize', () => {
   if (visualViewport.scale > 1.01) { const c = vpMeta.content; vpMeta.content = c + ', width=device-width'; requestAnimationFrame(() => { vpMeta.content = c; }); }
 });
 renderSound();
+// iOS home-screen apps fill the whole screen, but with the translucent status bar the
+// layout viewport comes up short, leaving a strip under the rack. Size the app from the
+// screen itself there.
+function fitStandalone() {
+  if (!navigator.standalone) return;
+  const { width: sw, height: sh } = window.screen;  // `screen` here is the app's current page
+  const long = Math.max(sw, sh), short = Math.min(sw, sh);
+  const full = innerHeight >= innerWidth ? long : short;
+  document.documentElement.style.setProperty('--app-h', `${Math.max(full, innerHeight)}px`);
+}
+fitStandalone();
 let rz;
-addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { if (screen === 'game') renderGame(); }, 120); });
+addEventListener('resize', () => { clearTimeout(rz); rz = setTimeout(() => { fitStandalone(); if (screen === 'game') renderGame(); }, 120); });
 
 /* ================= boot ================= */
 $('#markHome').innerHTML = markHTML();

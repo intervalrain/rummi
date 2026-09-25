@@ -25,7 +25,7 @@ h1,h2{margin:0;text-wrap:balance}
 .muted{color:var(--muted)}
 
 /* pinned to the screen edges: vh/dvh heights come up short on iOS (home-screen mode, collapsing toolbars) */
-#app{position:fixed;inset:0;max-width:760px;margin:0 auto;padding-top:var(--safe-t)}
+#app{position:fixed;inset:0;height:var(--app-h,auto);max-width:760px;margin:0 auto;padding-top:var(--safe-t)}
 .screen{height:100%;display:flex;flex-direction:column}
 .screen.scroll{overflow-y:auto;overscroll-behavior:contain}
 .screen.center{align-items:center;justify-content:center;text-align:center;gap:10px;padding:24px 20px calc(24px + var(--safe-b))}
@@ -191,7 +191,7 @@ button.pill{border:0}
 /* ---------- game: rack ---------- */
 /* whatever lies below the app (e.g. under Safari's floating toolbar) stays rack-brown, not felt */
 #rack::after{content:"";position:absolute;left:0;right:0;top:100%;height:50vh;background:#3C2213;pointer-events:none}
-#rack{position:relative;padding:6px 10px max(8px,calc(var(--safe-b) + 2px));background:linear-gradient(180deg,var(--walnut-hi) 0,var(--walnut) 14px,#3C2213 100%);box-shadow:0 -6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,220,180,.25)}
+#rack{position:relative;padding:6px 10px max(8px,calc(var(--safe-b) - 12px));background:linear-gradient(180deg,var(--walnut-hi) 0,var(--walnut) 14px,#3C2213 100%);box-shadow:0 -6px 18px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,220,180,.25)}
 #status{display:flex;align-items:center;gap:8px;min-height:24px;padding:0 4px 6px;font-size:13px}
 #status .who{flex:1;min-width:0;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip{flex:none;padding:2px 9px;border-radius:999px;font-size:12px;background:rgba(0,0,0,.28);color:#E8D8BD;font-variant-numeric:tabular-nums}
