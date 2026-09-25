@@ -215,3 +215,19 @@ test('solo games take the smart-play choice from the start request, off by defau
   assert.equal(b.last('table').view.hint, true);
   stopAll(lobby);
 });
+
+test('stats list who is online and what they are doing', () => {
+  const { lobby, connect } = setup();
+  const a = connect('A'), b = connect('B'), c = connect('C'), d = connect('D');
+  lobby.handle(b.p, { t: 'quick' });
+  lobby.handle(c.p, { t: 'create' });
+  lobby.handle(d.p, { t: 'solo', bots: 1 });
+  lobby.handle(a.p, { t: 'name', name: '阿明' });
+  const st = Object.fromEntries(a.last('stats').people.map(x => [x.name, x.st]));
+  assert.deepEqual(st, { 阿明: 'lobby', B: 'queue', C: 'room', D: 'game' });
+  d.conn.send = () => {};
+  lobby.disconnect(d.p, d.conn);
+  assert.ok(!a.last('stats').people.some(x => x.name === 'D'), 'offline players drop off');
+  assert.equal(a.last('stats').people.find(x => x.name === '阿明').id, a.p.id);
+  stopAll(lobby);
+});

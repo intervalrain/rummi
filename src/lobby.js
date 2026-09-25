@@ -8,6 +8,9 @@ const CHAT_KEEP = 60;
 const CHAT_BURST = 5, CHAT_WINDOW = 5_000;
 const IDLE_TABLE_MS = 3 * 60_000;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const PEOPLE_MAX = 100;
+// messages that can change a player's name or what they're doing, so the online list is re-sent
+const STATUS_CHANGES = new Set(['name', 'solo', 'create', 'join', 'leave', 'start', 'rematch']);
 
 const INVISIBLE = '\\u200b-\\u200f\\u2028-\\u202e\\u2066-\\u2069';
 const NAME_BAD = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f' + INVISIBLE + ']', 'g');
@@ -78,13 +81,26 @@ export class Lobby {
   }
 
   stats() {
-    const msg = { t: 'stats', online: [...this.players.values()].filter(p => p.conn).length, queue: this.queue.length };
-    for (const p of this.players.values()) if (p.conn) p.conn.send(msg);
+    const online = [...this.players.values()].filter(p => p.conn);
+    const people = online.slice(0, PEOPLE_MAX).map(p => ({ id: p.id, name: p.name, st: this.activity(p) }));
+    const msg = { t: 'stats', online: online.length, queue: this.queue.length, people };
+    for (const p of online) p.conn.send(msg);
+  }
+  /** lobby | queue | room (waiting for the host) | game */
+  activity(p) {
+    if (this.queue.some(q => q.pid === p.id)) return 'queue';
+    const t = p.table && this.tables.get(p.table);
+    if (!t) return 'lobby';
+    return t.status === 'waiting' ? 'room' : 'game';
   }
 
   /* ---------- message router ---------- */
   handle(p, m) {
     if (!m || typeof m !== 'object' || typeof m.t !== 'string') return;
+    this.route(p, m);
+    if (STATUS_CHANGES.has(m.t)) this.stats();
+  }
+  route(p, m) {
     const err = text => this.send(p.id, { t: 'error', text });
     const t = p.table && this.tables.get(p.table);
     switch (m.t) {

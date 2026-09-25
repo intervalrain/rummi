@@ -90,6 +90,24 @@ function rulesHTML() {
 function renderStats() {
   $('#onlineTxt').textContent = `線上 ${stats.online} 人${stats.queue ? ` · ${stats.queue} 人配對中` : ''}`;
   $('#lobbyCount').textContent = `${stats.online} 人在線`;
+  if (!modal.hidden && sheet.dataset.view === 'people') showPeople();
+}
+const ACTIVITY = { lobby: ['大廳', 'lobby'], queue: ['配對中', 'queue'], room: ['等待開局', 'room'], game: ['遊戲中', 'game'] };
+const ACTIVITY_ORDER = ['lobby', 'queue', 'room', 'game'];
+function showPeople() {
+  const list = (stats.people || []).slice().sort((a, b) => (b.id === me.id) - (a.id === me.id)
+    || ACTIVITY_ORDER.indexOf(a.st) - ACTIVITY_ORDER.indexOf(b.st) || a.name.localeCompare(b.name, 'zh-Hant'));
+  const more = stats.online - list.length;
+  sheet.dataset.view = 'people';
+  sheet.innerHTML = `<div class="big">線上玩家</div><p class="sub">${stats.online} 人在線${stats.queue ? ` · ${stats.queue} 人配對中` : ''}</p>
+    <div class="res people">${list.map((x, i) => {
+      const [label, cls] = ACTIVITY[x.st] || ACTIVITY.lobby, mine = x.id === me.id;
+      return `<div class="${mine ? 'me' : ''}"><span class="av s${i % 4}">${esc([...x.name][0] || '?')}</span>
+        <span class="n">${esc(x.name)}${mine ? '<small>（你）</small>' : ''}</span><span class="st ${cls}">${label}</span></div>`;
+    }).join('')}</div>
+    ${more > 0 ? `<p class="restip">還有 ${more} 人沒有列出</p>` : ''}
+    <div class="row2"><button class="btn primary" id="mClose" type="button">關閉</button></div>`;
+  modal.hidden = false;
 }
 function renderQueue() {
   if (!queueInfo) return;
@@ -599,8 +617,9 @@ function dockToast() {
   t.style.top = t.classList.contains('dock') ? `${$('#status').getBoundingClientRect().top}px` : '';
 }
 const modal = $('#modal'), sheet = $('#sheet');
-function closeModal() { modal.hidden = true; }
+function closeModal() { modal.hidden = true; sheet.dataset.view = ''; }
 function showMenu() {
+  sheet.dataset.view = 'menu';
   sheet.innerHTML = `<div class="mark">${markHTML()}</div>
     <p class="sub">房號 ${esc(V.code)}${V.priv ? '' : '（配對桌）'}</p>
     <div class="seg"><button type="button" id="mSound"></button></div>
@@ -611,6 +630,7 @@ function showMenu() {
 }
 function showResult() {
   if (!V?.over) return;
+  sheet.dataset.view = 'result';
   const o = V.over, w = o.winner;
   if (w === V.you) sfx.win(); else sfx.lose();
   // ranked by the running total at this table; this game's result sits beside it
@@ -739,6 +759,7 @@ function renderSound() {
   const m = $('#mSound');
   if (m) m.textContent = on ? '音效：開' : '音效：關';
 }
+$('#onlinePill').onclick = showPeople;
 $('#bSoundHome').onclick = () => { sfx.toggle(); renderSound(); };
 document.addEventListener('pointerdown', () => sfx.unlock(), { capture: true });
 // No zooming, on any device.
