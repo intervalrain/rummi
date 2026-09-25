@@ -83,7 +83,7 @@ button.pill{border:0}
 .joinform .btn{height:58px;flex:none}
 .solo{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)}
 .sololbl{grid-column:1/-1}
-.solo .btn{grid-column:1/-1}
+.solo .btn,#soloHint{grid-column:1/-1}
 .rulescard summary{cursor:pointer;font-weight:700;color:var(--muted);font-size:13px}
 .rules{margin:10px 0 0;padding-left:18px;color:#CFDDDF;font-size:13px;display:grid;gap:5px}
 .rules b{color:var(--ink)}
@@ -205,6 +205,7 @@ button.pill{border:0}
 .spectate{margin:auto;color:var(--muted);font-size:13px}
 #actions{display:grid;grid-template-columns:1fr 1.25fr 1fr 1fr 1.45fr;gap:6px;margin-top:9px}
 #actions .btn{padding:0 4px}
+#actions.nohint{grid-template-columns:1fr 1fr 1fr 1.45fr}
 #taunts{display:none}
 /* emoji are always one tap away, just above your hand */
 #emojis{display:flex;justify-content:space-between;gap:2px;margin:0 0 4px;padding:0 2px}

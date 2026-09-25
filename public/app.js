@@ -84,7 +84,7 @@ function rulesHTML() {
     <li>點牌選取，再點目標牌組裡的任一張加入，或點「＋ 新牌組」。也可以直接拖曳。</li>
     <li><b>雙擊手牌</b>會自動接到能接的牌組；選牌後能接上的牌組會亮<b class="okc">綠框</b>。</li>
     <li><b>自動拆組</b>：把牌插進牌組中間時會自動拆開，例如 1-5 插入 3 會變成 1,2,3 + 3,4,5。</li>
-    <li><b>智慧出牌</b>會算出最多能出的牌（包含重組桌面）並自動擺好，你確認後按「完成」。</li>
+    <li><b>智慧出牌</b>（房主開放時才有）會算出最多能出的牌（包含重組桌面）並自動擺好，你確認後按「完成」。</li>
   </ul>`;
 }
 function renderStats() {
@@ -103,21 +103,22 @@ function renderQueue() {
 }
 
 /* ---------- home controls ---------- */
-const soloOpt = { bots: 3, diff: 'hard' };
+const soloOpt = { bots: 3, diff: 'hard', hint: false };
 function segPick(el, key) {
   el.addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    soloOpt[key] = key === 'bots' ? +b.dataset.v : b.dataset.v;
+    soloOpt[key] = key === 'bots' ? +b.dataset.v : key === 'hint' ? b.dataset.v === 'on' : b.dataset.v;
     el.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
   });
 }
 segPick($('#soloBots'), 'bots');
 segPick($('#soloDiff'), 'diff');
+segPick($('#soloHint'), 'hint');
 $('#nameIn').addEventListener('change', e => { const n = e.target.value.trim(); if (n && n !== me.name) send({ t: 'name', name: n }); });
 $('#nameIn').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
 $('#bQuick').onclick = () => send({ t: 'quick' });
 $('#bCreate').onclick = () => send({ t: 'create' });
-$('#bSolo').onclick = () => send({ t: 'solo', bots: soloOpt.bots, diff: soloOpt.diff });
+$('#bSolo').onclick = () => send({ t: 'solo', bots: soloOpt.bots, diff: soloOpt.diff, hint: soloOpt.hint });
 $('#joinForm').addEventListener('submit', e => {
   e.preventDefault();
   const c = $('#codeIn').value.trim().toUpperCase();
@@ -142,9 +143,12 @@ function renderRoom() {
     ? `<div class="ctl"><div class="seg" id="roomDiff" role="group" aria-label="電腦強度">
         <button type="button" data-v="easy" aria-pressed="${V.diff === 'easy'}">電腦：一般</button>
         <button type="button" data-v="hard" aria-pressed="${V.diff === 'hard'}">電腦：高手</button></div>
+        <div class="seg" id="roomHint" role="group" aria-label="智慧出牌">
+        <button type="button" data-v="off" aria-pressed="${!V.hint}">智慧出牌：關閉</button>
+        <button type="button" data-v="on" aria-pressed="${V.hint}">智慧出牌：開放</button></div>
         <div class="row2"><button class="btn danger" data-act="leave" type="button">離開</button>
         <button class="btn go" data-act="start" type="button" ${filled < 2 ? 'disabled' : ''}>開始遊戲（${filled}/4）</button></div></div>`
-    : `<div class="ctl"><p class="wait">等房主開始遊戲…（${filled}/4）</p><div class="row2"><button class="btn danger" data-act="leave" type="button">離開</button></div></div>`;
+    : `<div class="ctl"><p class="wait">等房主開始遊戲…（${filled}/4）<br><small>智慧出牌：${V.hint ? '開放' : '關閉'}</small></p><div class="row2"><button class="btn danger" data-act="leave" type="button">離開</button></div></div>`;
 }
 $('#room').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b) return;
@@ -154,6 +158,7 @@ $('#room').addEventListener('click', e => {
   else if (act === 'leave') send({ t: 'leave' });
   else if (act === 'start') send({ t: 'start' });
   else if (b.closest('#roomDiff')) send({ t: 'diff', diff: b.dataset.v });
+  else if (b.closest('#roomHint')) send({ t: 'hint', on: b.dataset.v === 'on' });
 });
 $('#bInvite').onclick = async () => {
   const url = `${location.origin}${location.pathname}?room=${V.code}`;
@@ -380,7 +385,7 @@ function commit() {
 function undo() { const u = undoStack.pop(); if (!u) return; L.hand = u.hand; L.board = u.board; sfx.undo(); changed(); }
 function resetTurn() { L = { board: cloneBoard(TS.board), hand: TS.hand.slice() }; undoStack = []; }
 function hint() {
-  if (!myTurn()) return;
+  if (!myTurn() || !V.hint) return;
   toast('計算最佳出法中…');
   setTimeout(() => {
     resetTurn();
@@ -547,6 +552,8 @@ function renderRack() {
   rack.classList.toggle('waiting', waiting);
   $('#emojis').hidden = V.status !== 'playing' || V.you < 0;
   $('#sortLbl').textContent = { smart: '智慧', color: '顏色', num: '數字' }[sortMode];
+  $('#bHint').hidden = !V.hint;
+  $('#actions').classList.toggle('nohint', !V.hint);
   $('#bHint').disabled = !mt;
   $('#bUndo').disabled = !mt || !undoStack.length;
   $('#bReset').disabled = !mt || (!played.length && !undoStack.length);

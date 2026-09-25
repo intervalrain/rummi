@@ -101,7 +101,7 @@ export class Lobby {
       case 'unqueue': return this.unqueue(p);
       case 'solo': {
         const bots = Math.min(3, Math.max(1, m.bots | 0));
-        const nt = this.createTable(p, { priv: true, diff: m.diff === 'easy' ? 'easy' : 'hard' });
+        const nt = this.createTable(p, { priv: true, diff: m.diff === 'easy' ? 'easy' : 'hard', hint: m.hint === true });
         for (let i = 0; i < bots; i++) nt.addBot();
         nt.start(p.id);
         return;
@@ -112,6 +112,7 @@ export class Lobby {
       case 'addBot': if (t && t.host === p.id) t.addBot(); return;
       case 'removeBot': if (t && t.host === p.id) t.removeBot(m.i | 0); return;
       case 'diff': if (t && t.host === p.id && t.status === 'waiting') { t.diff = m.diff === 'easy' ? 'easy' : 'hard'; t.touch(); } return;
+      case 'hint': if (t && t.host === p.id && t.status === 'waiting') { t.hint = m.on === true; t.touch(); } return;
       case 'start': { if (!t) return; const e = t.start(p.id); if (e) err(e); else t.sys('牌局開始！'); return; }
       case 'commit': { if (!t) return; const e = t.commit(p.id, m.seq, m.board); if (e) { err(e); this.send(p.id, { t: 'table', view: t.view(p.id) }); } return; }
       case 'draw': { if (!t) return; const e = t.draw(p.id, m.seq); if (e) err(e); return; }

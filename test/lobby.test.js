@@ -189,3 +189,29 @@ test('a full game of computer players keeps every tile accounted for', () => {
   assert.equal(t.status, 'over');
   stopAll(lobby);
 });
+
+test('smart play is off by default and only the host can turn it on before the game', () => {
+  const { lobby, connect } = setup();
+  const a = connect('A'), b = connect('B');
+  lobby.handle(a.p, { t: 'create' });
+  assert.equal(a.last('table').view.hint, false);
+  lobby.handle(b.p, { t: 'join', code: a.last('table').view.code });
+  lobby.handle(b.p, { t: 'hint', on: true });
+  assert.equal(b.last('table').view.hint, false);
+  lobby.handle(a.p, { t: 'hint', on: true });
+  assert.equal(b.last('table').view.hint, true);
+  lobby.handle(a.p, { t: 'start' });
+  lobby.handle(a.p, { t: 'hint', on: false });
+  assert.equal(b.last('table').view.hint, true, 'locked once the game starts');
+  stopAll(lobby);
+});
+
+test('solo games take the smart-play choice from the start request, off by default', () => {
+  const { lobby, connect } = setup();
+  const a = connect('A'), b = connect('B');
+  lobby.handle(a.p, { t: 'solo', bots: 1 });
+  assert.equal(a.last('table').view.hint, false);
+  lobby.handle(b.p, { t: 'solo', bots: 1, hint: true });
+  assert.equal(b.last('table').view.hint, true);
+  stopAll(lobby);
+});

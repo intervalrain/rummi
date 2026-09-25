@@ -16,12 +16,13 @@ const who = s => (s.bot ? 'bot:' + s.name : s.pid);
  * hub: { send(pid, msg), isOnline(pid), nameOf(pid) }
  */
 export class Table {
-  constructor(hub, code, { priv = true, host = null, diff = 'hard' } = {}) {
+  constructor(hub, code, { priv = true, host = null, diff = 'hard', hint = false } = {}) {
     this.hub = hub;
     this.code = code;
     this.priv = priv;
     this.host = host;
     this.diff = diff;
+    this.hint = hint;                 // players may use 智慧出牌 (auto-arrange)
     this.seats = [null, null, null, null];
     this.status = 'waiting';          // waiting | playing | over
     this.g = null;
@@ -263,7 +264,7 @@ export class Table {
   close() { clearTimeout(this.timer); this.status = 'closed'; }
 
   view(pid) {
-    const base = { code: this.code, priv: this.priv, status: this.status, isHost: this.host === pid, seq: this.seq, diff: this.diff, games: this.games };
+    const base = { code: this.code, priv: this.priv, status: this.status, isHost: this.host === pid, seq: this.seq, diff: this.diff, hint: this.hint, games: this.games };
     if (this.status === 'waiting') {
       return {
         ...base,
