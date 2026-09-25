@@ -234,9 +234,9 @@ function taunt(text) {
   lastTaunt = now;
   send({ t: 'chat', ch: 'table', text });
 }
-$('#taunts').innerHTML = EMOJIS.map(e => `<button type="button" class="emob">${e}</button>`).join('')
-  + TAUNTS.map(p => `<button type="button">${esc(p)}</button>`).join('');
-$('#taunts').addEventListener('click', e => { const b = e.target.closest('button'); if (b) taunt(b.textContent); });
+$('#emojis').innerHTML = EMOJIS.map(e => `<button type="button">${e}</button>`).join('');
+$('#taunts').innerHTML = TAUNTS.map(p => `<button type="button">${esc(p)}</button>`).join('');
+for (const el of [$('#emojis'), $('#taunts')]) el.addEventListener('click', e => { const b = e.target.closest('button'); if (b) taunt(b.textContent); });
 function updateBadge() { const b = $('#chatBadge'); b.hidden = !unread; b.textContent = unread > 9 ? '9+' : unread; }
 function openChat() { $('#chatSheet').hidden = false; unread = 0; updateBadge(); renderChats(); }
 function closeChat() { $('#chatSheet').hidden = true; }
@@ -417,6 +417,7 @@ function renderGame() {
   const prev = new Map();
   if (!REDUCE) $$('#game .tile[data-id]').forEach(el => prev.set(el.dataset.id, el.getBoundingClientRect()));
   renderTop(); renderHand(); renderRack(); renderBoard();  // board last: its space depends on the rack height
+  dockToast();
   if (!REDUCE) flip(prev);
 }
 function flip(prev) {
@@ -540,6 +541,7 @@ function renderRack() {
   const waiting = V.status === 'playing' && !mt && V.you >= 0, rack = $('#rack');
   if (!waiting && rack.classList.contains('waiting')) turnShownAt = Date.now();
   rack.classList.toggle('waiting', waiting);
+  $('#emojis').hidden = V.status !== 'playing' || V.you < 0;
   $('#sortLbl').textContent = { smart: '智慧', color: '顏色', num: '數字' }[sortMode];
   $('#bHint').disabled = !mt;
   $('#bUndo').disabled = !mt || !undoStack.length;
@@ -573,12 +575,17 @@ function toast(msg, kind = '') {
   const t = $('#toast');
   // In a game, dock over the rack's status line so the table stays visible.
   const dock = screen === 'game';
-  t.style.top = dock ? `${$('#status').getBoundingClientRect().top}px` : '';
   t.textContent = msg;
   t.className = 'show ' + kind + (dock ? ' dock' : '');
+  dockToast();
   if (kind === 'bad') sfx.nope();
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { t.classList.remove('show'); }, 2600);
+}
+// the rack can change height on re-render, so re-align after every game render too
+function dockToast() {
+  const t = $('#toast');
+  t.style.top = t.classList.contains('dock') ? `${$('#status').getBoundingClientRect().top}px` : '';
 }
 const modal = $('#modal'), sheet = $('#sheet');
 function closeModal() { modal.hidden = true; }
