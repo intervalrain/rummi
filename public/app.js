@@ -366,6 +366,7 @@ const iceValue = () => L.board.filter(s => s.tiles.every(id => TS.hand.includes(
 function commit() {
   if (!myTurn() || busy) return;
   if (Date.now() - turnShownAt < 700) return;  // the taunt bar just turned into this button
+  if (sel.size) { moveTiles([...sel], { type: 'new' }); return; }  // 出牌: selection becomes a new set
   const played = playedNow();
   if (!played.length) { busy = true; send({ t: 'draw', seq: V.seq }); renderRack(); return; }
   const r = E.validateTurn(TS.board.map(s => s.tiles), L.board.map(s => s.tiles), TS.hand, melded());
@@ -548,8 +549,8 @@ function renderRack() {
   $('#bReset').disabled = !mt || (!played.length && !undoStack.length);
   const m = $('#bMain');
   m.disabled = !mt || busy;
-  m.classList.toggle('go', mt && played.length > 0);
-  m.textContent = !mt ? '等待中' : busy ? '送出中…' : played.length ? '完成' : V.pool ? '抽牌' : '過';
+  m.classList.toggle('go', mt && (played.length > 0 || sel.size > 0));
+  m.textContent = !mt ? '等待中' : busy ? '送出中…' : sel.size ? '出牌' : played.length ? '完成' : V.pool ? '抽牌' : '過';
   tickTimers();
 }
 function tickTimers() {
