@@ -78,3 +78,31 @@ test('bestPlan with rearrangement finds plays plan A cannot', () => {
   for (const id of board[0].tiles) assert.ok(onTable.has(id));
   for (const s of p.board) assert.ok(E.analyze(s.tiles));
 });
+
+test('splitSet splits a run when a duplicate is inserted', () => {
+  const run = [1, 2, 3, 4, 5].map(n => t(1, n));
+  const parts = E.splitSet(run.concat(t(1, 3, 1))).map(p => E.analyze(p).order.map(id => id % 52));
+  assert.deepEqual(parts, [[t(1, 1), t(1, 2), t(1, 3)], [t(1, 3), t(1, 4), t(1, 5)]]);
+});
+
+test('splitSet handles longer runs, jokers and several inserted tiles', () => {
+  const six = [1, 2, 3, 4, 5, 6].map(n => t(0, n));
+  const a = E.splitSet(six.concat(t(0, 4, 1)));
+  assert.equal(a.length, 2);
+  assert.ok(a.every(p => E.analyze(p)));
+  assert.equal(a.flat().length, 7);
+  const withJ = [t(2, 1), J0, t(2, 3), t(2, 4), t(2, 5), t(2, 3, 1)];
+  assert.ok(E.splitSet(withJ).every(p => E.analyze(p)));
+  const two = [1, 2, 3, 4, 5, 6].map(n => t(3, n)).concat(t(3, 2, 1), t(3, 3, 1), t(3, 4, 1));
+  const b = E.splitSet(two);
+  assert.ok(b.every(p => E.analyze(p)));
+  assert.equal(b.flat().length, 9);
+});
+
+test('splitSet returns null when no clean split exists or none is needed', () => {
+  const six = [1, 2, 3, 4, 5, 6].map(n => t(0, n));
+  assert.equal(E.splitSet(six.concat(t(0, 2, 1))), null, '1,2 + 2..6 is not valid');
+  assert.equal(E.splitSet(six.concat(t(1, 4))), null, 'wrong colour');
+  assert.equal(E.splitSet([t(0, 1), t(0, 2)]), null, 'partial set');
+  assert.equal(E.splitSet(six), null, 'already valid');
+});

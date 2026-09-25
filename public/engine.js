@@ -224,6 +224,18 @@ export function handMelds(hand, obj = 'count', ms = 150) {
   return r ? mapMelds(r.melds, hand) : [];
 }
 
+/** Splits an invalid set into valid ones using every tile (e.g. run 1-5 plus
+    another 3 becomes 1,2,3 + 3,4,5). Returns tile-id arrays, or null when the
+    set is already valid or no such split exists. */
+export function splitSet(ids, ms = 60) {
+  if (ids.length < 6 || analyze(ids)) return null;
+  const { a, j } = counts(ids);
+  const r = solveCounts(a, Z(), j, 0, 'count', ms, true);
+  if (!r || r.melds.length < 2) return null;
+  const parts = mapMelds(r.melds, ids);
+  return parts.every(p => analyze(p)) ? parts : null;
+}
+
 /** Plan A: melds from the hand plus extensions of existing sets; the table is untouched. */
 export function planSimple(hand, board) {
   const sets = board.map(s => ({ id: s.id, tiles: s.tiles.slice() }));

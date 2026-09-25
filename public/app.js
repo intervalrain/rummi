@@ -78,6 +78,7 @@ function rulesHTML() {
     <li>出不了牌就抽一張，先出完手牌的人獲勝。每回合限時 90 秒。</li>
     <li>點牌選取，再點目標牌組裡的任一張加入，或點「＋ 新牌組」。也可以直接拖曳。</li>
     <li><b>雙擊手牌</b>會自動接到能接的牌組；選牌後能接上的牌組會亮<b class="okc">綠框</b>。</li>
+    <li><b>自動拆組</b>：把牌插進牌組中間時會自動拆開，例如 1-5 插入 3 會變成 1,2,3 + 3,4,5。</li>
     <li><b>智慧出牌</b>會算出最多能出的牌（包含重組桌面）並自動擺好，你確認後按「完成」。</li>
   </ul>`;
 }
@@ -273,6 +274,12 @@ function canPick(id) {
   return melded() || TS.hand.includes(id);
 }
 const allowedTarget = s => melded() || s.tiles.every(id => TS.hand.includes(id));
+/** True when dropping ids onto set s leaves valid set(s), directly or after an auto-split. */
+function fitsSet(s, ids) {
+  if (ids.every(id => s.tiles.includes(id)) || !allowedTarget(s)) return false;
+  const all = [...new Set(s.tiles.concat(ids))];
+  return !!analyze(all) || !!E.splitSet(all, 20);
+}
 function pushUndo() { undoStack.push({ hand: L.hand.slice(), board: cloneBoard(L.board) }); }
 function changed() { sel.clear(); renderGame(); sendPreview(); }
 
@@ -292,16 +299,25 @@ function moveTiles(ids, target) {
   L.board.forEach(s => { s.tiles = s.tiles.filter(id => !mv.has(id)); });
   if (target.type === 'hand') L.hand.push(...ids);
   else if (target.type === 'new') L.board.push({ id: sid++, tiles: ids.slice() });
-  else getSet(target.id).tiles.push(...ids);
+  else {
+    const s = getSet(target.id);
+    s.tiles.push(...ids);
+    const parts = E.splitSet(s.tiles);  // e.g. 1-5 plus a 3 becomes 1,2,3 + 3,4,5
+    if (parts) {
+      s.tiles = parts[0];
+      L.board.splice(L.board.indexOf(s) + 1, 0, ...parts.slice(1).map(tiles => ({ id: sid++, tiles })));
+    }
+  }
   L.board = L.board.filter(s => s.tiles.length);
   sfx.place();
   changed();
   return true;
 }
 function quickPlace(id) {
-  const cands = L.board.filter(s => !s.tiles.includes(id) && allowedTarget(s) && analyze(s.tiles.concat(id)));
+  const cands = L.board.filter(s => fitsSet(s, [id]));
   if (!cands.length) { toast('這張牌目前沒有能直接接上的牌組'); renderGame(); return; }
-  cands.sort((a, b) => a.tiles.length - b.tiles.length);
+  // prefer a plain extension over a split, then the shortest set
+  cands.sort((a, b) => !analyze(a.tiles.concat(id)) - !analyze(b.tiles.concat(id)) || a.tiles.length - b.tiles.length);
   moveTiles([id], { type: 'set', id: cands[0].id });
 }
 const iceValue = () => L.board.filter(s => s.tiles.every(id => TS.hand.includes(id))).reduce((v, s) => v + setValue(s.tiles), 0);
@@ -395,7 +411,7 @@ function renderBoard() {
     const a = analyze(s.tiles), order = a ? a.order : looseOrder(s.tiles);
     let cls = 'set';
     if (!a) cls += s.tiles.length < 3 ? ' partial' : ' invalid';
-    if (selIds.length && mt && !selIds.every(id => s.tiles.includes(id)) && allowedTarget(s) && analyze([...new Set(s.tiles.concat(selIds))])) cls += ' fits';
+    if (selIds.length && mt && fitsSet(s, selIds)) cls += ' fits';
     return `<div class="${cls}" data-drop="s:${s.id}">${order.map(id => tileHTML(id, (mine.has(id) ? ' mine' : '') + (recent.has(id) ? ' recent' : ''))).join('')}</div>`;
   }).join('');
   const watching = !mt && PV && V.status === 'playing' ? `<div class="watching">${esc(pname(V.turn))} 正在排牌…</div>` : '';
@@ -405,29 +421,36 @@ function renderBoard() {
   $('#board').classList.toggle('selecting', sel.size > 0);
 }
 /* Picks the largest table-tile size at which every set fits on screen without
-   scrolling, by simulating the flex-wrap layout. Below the minimum the table scrolls. */
-const BOARD_MAX = 34, BOARD_MIN = 17;
+   scrolling, by simulating the flex-wrap layout. Set padding and gaps shrink with
+   the tiles so even a crowded table fits; only below BOARD_MIN does it scroll. */
+const BOARD_MAX = 34, BOARD_MIN = 10;
+function boardMetrics(bw) {
+  const sp = Math.min(5, Math.max(2, bw * 0.15)), small = bw < 20;
+  return {
+    bw, sp, tg: bw >= 22 ? 2 : 1, gx: Math.max(3, bw * 0.24), gy: Math.max(4, bw * 0.3),
+    rowH: bw * 1.36 + sp * 2 + 2, nw: small ? 62 : 78, nf: small ? 10 : 12,
+  };
+}
 function fitBoard(lens, withNewSet, withWatching) {
   const el = $('#board'), cs = getComputedStyle(el);
-  const W = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const H = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - (withWatching ? 22 : 0);
+  const W = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 1;
+  const H = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
   const items = withNewSet ? lens.concat(-1) : lens;
-  const max = Math.min(BOARD_MAX, Math.max(24, innerWidth * 0.073));
-  const layout = bw => {
-    const gx = Math.max(4, bw * 0.24), gy = Math.max(6, bw * 0.3), rowH = bw * 1.36 + 12;
+  const fits = m => {
     let x = 0, rows = 1;
     for (const n of items) {
-      const w = n < 0 ? Math.max(bw * 3 + 14, 78) : n * bw + (n - 1) * 2 + 10;
-      if (x > 0 && x + gx + w > W) { rows++; x = w; } else x += (x ? gx : 0) + w;
+      const w = n < 0 ? Math.max(m.bw * 3 + m.sp * 2, m.nw) : n * m.bw + (n - 1) * m.tg + m.sp * 2;
+      if (x > 0 && x + m.gx + w > W) { rows++; x = w; } else x += (x ? m.gx : 0) + w;
     }
-    return { fits: rows * rowH + (rows - 1) * gy <= H, gx, gy };
+    const top = withWatching ? 20 + m.gy : 0;
+    return top + rows * m.rowH + (rows - 1) * m.gy <= H;
   };
-  let bw = max, r = layout(bw);
-  while (!r.fits && bw > BOARD_MIN) { bw = Math.max(BOARD_MIN, bw - 0.5); r = layout(bw); }
-  el.style.setProperty('--bw', bw + 'px');
-  el.style.setProperty('--bh', bw * 1.36 + 'px');
-  el.style.setProperty('--gx', r.gx + 'px');
-  el.style.setProperty('--gy', r.gy + 'px');
+  // binary search the largest size (to a quarter pixel) that fits
+  let lo = BOARD_MIN, hi = Math.min(BOARD_MAX, Math.max(24, innerWidth * 0.073));
+  if (fits(boardMetrics(hi))) lo = hi;
+  else while (hi - lo > 0.25) { const mid = (lo + hi) / 2; if (fits(boardMetrics(mid))) lo = mid; else hi = mid; }
+  const m = boardMetrics(lo);
+  for (const [k, v] of [['bw', m.bw], ['bh', m.bw * 1.36], ['sp', m.sp], ['tg', m.tg], ['gx', m.gx], ['gy', m.gy], ['nw', m.nw], ['nf', m.nf]]) el.style.setProperty('--' + k, v + 'px');
 }
 let smartCache = { key: '', groups: null };
 function handGroups() {
@@ -581,7 +604,7 @@ function startDrag() {
   const ids = drag.ids;
   $$('#sets .set').forEach(s => {
     const set = getSet(+s.dataset.drop.slice(2));
-    s.classList.toggle('fits', !!set && !ids.every(id => set.tiles.includes(id)) && allowedTarget(set) && !!analyze([...new Set(set.tiles.concat(ids))]));
+    s.classList.toggle('fits', !!set && fitsSet(set, ids));
   });
   $('#board').classList.add('selecting');
 }
