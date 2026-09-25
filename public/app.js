@@ -64,6 +64,7 @@ function onMessage(m) {
 
 /* ================= screens ================= */
 function show(name) {
+  if (name !== screen) $('#toast').classList.remove('show');  // don't carry a game toast onto another screen
   screen = name;
   for (const s of ['home', 'queue', 'room', 'game']) $('#' + s).hidden = s !== name;
   if (name === 'home') renderStats();
@@ -132,7 +133,7 @@ function renderRoom() {
   const host = V.isHost, filled = V.seats.filter(Boolean).length;
   $('#seats').innerHTML = V.seats.map((s, i) => {
     if (!s) return `<div class="seat empty"><span class="av">＋</span><span class="nm">空位</span>${host ? `<button class="btn" data-act="addBot" type="button">加電腦</button>` : ''}</div>`;
-    const tags = [i === V.you ? '你' : '', s.isHost ? '房主' : '', s.bot ? '電腦' : '', !s.bot && !s.online ? '離線' : ''].filter(Boolean).join(' · ');
+    const tags = [i === V.you ? '你' : '', s.isHost ? '房主' : '', s.bot ? '電腦' : '', !s.bot && !s.online ? '離線' : '', V.games ? `累計 ${signed(s.total)}` : ''].filter(Boolean).join(' · ');
     return `<div class="seat"><span class="av ${s.bot ? 'bot' : 's' + i}">${esc([...s.name][0] || '?')}</span>
       <span class="nm">${esc(s.name)}<small>${tags}</small></span>
       ${host && s.bot ? `<button class="btn" data-act="removeBot" data-i="${i}" type="button">移除</button>` : ''}</div>`;
@@ -256,6 +257,7 @@ const melded = () => V.you >= 0 && V.seats[V.you].melded;
 const getSet = id => L.board.find(s => s.id === id);
 const playedNow = () => (myTurn() ? TS.hand.filter(id => !L.hand.includes(id)) : []);
 const pname = i => (i === V.you ? '你' : V.seats[i]?.name || '玩家');
+const signed = n => (n > 0 ? '+' + n : n < 0 ? '−' + -n : '0');
 
 function fmtMsg(m) {
   const n = pname(m.seat);
@@ -442,6 +444,7 @@ function renderTop() {
       ${!p.online && !p.left ? '<span class="off" title="離線"></span>' : ''}
       ${ice ? '<span class="ice" aria-label="未破冰">冰</span>' : ''}
       ${active && V.turnLeft ? '<em data-timer></em>' : ''}
+      ${V.games ? `<i class="tot ${p.total < 0 ? 'neg' : ''}" title="本桌累計">${signed(p.total)}</i>` : ''}
       <div class="pm"><b>${esc(pname(i))}</b><span>${p.left ? '已離開' : `${p.count}<small>張</small>`}</span></div></div>`;
   }).join('');
   tickTimers();
@@ -603,11 +606,13 @@ function showResult() {
   if (!V?.over) return;
   const o = V.over, w = o.winner;
   if (w === V.you) sfx.win(); else sfx.lose();
-  const rows = V.seats.map((p, i) => ({ p, i, s: o.scores[i] })).sort((a, b) => b.s.score - a.s.score);
+  // ranked by the running total at this table; this game's result sits beside it
+  const rows = V.seats.map((p, i) => ({ p, i, s: o.scores[i], t: o.totals[i] })).sort((a, b) => b.t - a.t || b.s.score - a.s.score);
   sheet.innerHTML = `<div class="mark">${markHTML()}</div>
-    <div class="big">${w === V.you ? '你贏了！' : `${esc(pname(w))} 獲勝`}</div><p class="sub">${esc(o.reason)}</p>
+    <div class="big">${w === V.you ? '你贏了！' : `${esc(pname(w))} 獲勝`}</div><p class="sub">${esc(o.reason)}${V.games > 1 ? ` · 第 ${V.games} 局` : ''}</p>
     <div class="res">${rows.map(r => `<div class="${r.i === w ? 'win' : ''}"><span class="av ${r.p.bot ? 'bot' : 's' + r.i}">${esc(r.i === V.you ? '你' : [...r.p.name][0] || '?')}</span>
-      <span class="n">${esc(pname(r.i))} · 剩 ${r.s.left} 張</span><span class="s ${r.s.score >= 0 ? 'pos' : 'neg'}">${r.s.score >= 0 ? '+' + r.s.score : '−' + -r.s.score}</span></div>`).join('')}</div>
+      <span class="n">${esc(pname(r.i))} · 剩 ${r.s.left} 張</span><span class="d ${r.s.score >= 0 ? 'pos' : 'neg'}">本局 ${signed(r.s.score)}</span><span class="s ${r.t >= 0 ? 'pos' : 'neg'}">${signed(r.t)}</span></div>`).join('')}</div>
+    <p class="restip">總分為這一桌的累計，按「再來一局」繼續累加；離開牌桌就歸零。</p>
     <div class="row2"><button class="btn" id="mLobby" type="button">回大廳</button><button class="btn primary" id="mRematch" type="button">再來一局</button></div>`;
   modal.hidden = false;
 }

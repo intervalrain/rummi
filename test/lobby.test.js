@@ -116,6 +116,34 @@ test('table chat carries the sender seat so clients can show it on their player 
   stopAll(lobby);
 });
 
+test('scores add up across rematches at the same table and reset when a player leaves', () => {
+  const { lobby, connect } = setup();
+  const a = connect('A'), b = connect('B');
+  lobby.handle(a.p, { t: 'create' });
+  lobby.handle(b.p, { t: 'join', code: a.last('table').view.code });
+  lobby.handle(a.p, { t: 'addBot' });
+  const t = [...lobby.tables.values()][0];
+  const want = new Map();
+  const nameAt = (v, i) => (i === v.you ? 'A' : v.seats[i].name);
+  for (let round = 1; round <= 2; round++) {
+    lobby.handle(a.p, { t: 'start' });
+    t.finish(round - 1, 'test');
+    const v = a.last('table').view;
+    v.over.scores.forEach((s, i) => want.set(nameAt(v, i), (want.get(nameAt(v, i)) ?? 0) + s.score));
+    assert.equal(v.games, round);
+    v.seats.forEach((s, i) => assert.equal(s.total, want.get(nameAt(v, i))));
+    assert.deepEqual(v.over.totals, v.seats.map(s => s.total));
+    lobby.handle(a.p, { t: 'rematch' });
+  }
+  const w = a.last('table').view;   // back in the waiting room: totals still shown
+  assert.equal(w.seats[w.you].total, want.get('A'));
+  lobby.handle(b.p, { t: 'leave' });
+  lobby.handle(b.p, { t: 'join', code: w.code });
+  const back = b.last('table').view;
+  assert.equal(back.seats[back.you].total, 0);
+  stopAll(lobby);
+});
+
 test('chat is rate-limited', () => {
   const { lobby, connect } = setup();
   const a = connect('A');

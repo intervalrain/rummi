@@ -9,6 +9,8 @@ const CHAT_KEEP = 60;
 
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = crypto.randomInt(i + 1); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 const wrap = board => board.map((tiles, i) => ({ id: i + 1, tiles }));
+/** Who a seat or player is across rematches: the person, or the bot by name. */
+const who = s => (s.bot ? 'bot:' + s.name : s.pid);
 
 /**
  * hub: { send(pid, msg), isOnline(pid), nameOf(pid) }
@@ -26,6 +28,8 @@ export class Table {
     this.seq = 0;
     this.msgN = 0;
     this.chat = [];
+    this.totals = new Map();          // who -> running score at this table
+    this.games = 0;                   // games finished at this table
     this.timer = null;
     this.turnEnds = 0;
     this.createdAt = Date.now();
@@ -66,6 +70,7 @@ export class Table {
   removeBot(i) {
     if (this.status !== 'waiting' || !this.seats[i]?.bot) return false;
     this.seats[i] = null;
+    this.pruneTotals();
     this.touch();
     return true;
   }
@@ -74,6 +79,7 @@ export class Table {
     if (this.status === 'waiting') {
       const i = this.seats.findIndex(s => s && s.pid === pid);
       if (i >= 0) this.seats[i] = null;
+      this.pruneTotals();
     } else {
       const p = this.g.players.find(p => p.pid === pid);
       if (p) { p.left = true; p.leftName = this.hub.nameOf(pid); }
@@ -207,12 +213,20 @@ export class Table {
     const seats = this.g.players.filter(p => !p.left).map(p => (p.bot ? { bot: true, name: p.name } : { pid: p.pid, bot: false }));
     while (seats.length < 4) seats.push(null);
     this.seats = seats;
+    this.pruneTotals();   // whoever left mid-game starts from zero if they come back
     if (!this.members().includes(this.host)) this.host = pid;
     this.status = 'waiting';
     this.g = null;
     this.touch();
     return null;
   }
+
+  /** Running totals belong to who is seated; anyone who left loses theirs. */
+  pruneTotals() {
+    const seated = new Set(this.seats.filter(Boolean).map(who));
+    for (const k of this.totals.keys()) if (!seated.has(k)) this.totals.delete(k);
+  }
+  total(s) { return this.totals.get(who(s)) ?? 0; }
 
   setMsg(seat, kind, cnt, initial = false) { this.g.msg = { n: ++this.msgN, seat, kind, cnt, initial }; }
   advance() {
@@ -226,7 +240,10 @@ export class Table {
     const g = this.g;
     const vals = g.players.map(p => E.handValue(p.hand));
     const gain = vals.reduce((a, v, k) => (k === w ? a : a + v), 0);
-    g.over = { winner: w, reason, scores: g.players.map((p, k) => ({ left: p.hand.length, score: k === w ? gain : -vals[k] })) };
+    const scores = g.players.map((p, k) => ({ left: p.hand.length, score: k === w ? gain : -vals[k] }));
+    g.players.forEach((p, k) => this.totals.set(who(p), this.total(p) + scores[k].score));
+    this.games++;
+    g.over = { winner: w, reason, scores, totals: g.players.map(p => this.total(p)) };
     this.status = 'over';
     this.seq++;
     this.broadcast();
@@ -246,7 +263,7 @@ export class Table {
   close() { clearTimeout(this.timer); this.status = 'closed'; }
 
   view(pid) {
-    const base = { code: this.code, priv: this.priv, status: this.status, isHost: this.host === pid, seq: this.seq, diff: this.diff };
+    const base = { code: this.code, priv: this.priv, status: this.status, isHost: this.host === pid, seq: this.seq, diff: this.diff, games: this.games };
     if (this.status === 'waiting') {
       return {
         ...base,
@@ -256,6 +273,7 @@ export class Table {
           bot: !!s.bot,
           online: s.bot || this.hub.isOnline(s.pid),
           isHost: !s.bot && s.pid === this.host,
+          total: this.total(s),
         }),
       };
     }
@@ -270,6 +288,7 @@ export class Table {
         online: p.bot || (!p.left && this.hub.isOnline(p.pid)),
         count: p.hand.length,
         melded: p.melded,
+        total: this.total(p),
       })),
       hand: you >= 0 ? g.players[you].hand.slice() : [],
       board: g.board,
